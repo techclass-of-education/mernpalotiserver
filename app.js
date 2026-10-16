@@ -3,6 +3,7 @@ const cors = require("cors")
 const app = express()
 const { connectToMongoDB } = require("./config/db")
 const UserModel=require("./models/user")
+const IncidentModel=require("./models/incident")
 
 // allowing client running on link http://localhost:5173
 app.use(cors({ origin: "http://localhost:5173" }))
@@ -16,17 +17,52 @@ app.get("/", function (req, res) {
 })
 
 // endpoint
-app.get("/about", function (req, res) {
-    res.send("About Link")
+app.get("/incident", async function (req, res) {
+    try
+    {
+   const incidents=await IncidentModel.find()
+   if(!incidents)
+   {
+    return res.json({msg:"Incidents not found"})
+   }
+
+    res.json({msg:"Incidents found",incidents})
+}
+catch(err)
+{
+    return res.json({msg:"Incidents not found:"+err})
+}
 })
 
 // endpoint
-app.post("/auth", function (req, res) {
+app.post("/auth",async function (req, res) {
     console.log(req.body)
     //db connection 
+try
+{
+   const user= await UserModel.findOne({email:req.body.email})
 
-    res.status(200).json({ auth: true, msg: "Login successfull" })
+   if(!user)
+   {
+    return res.status(404).json({auth:false,msg:"Wrong email-id"})
+   }
+
+   if(req.body.password==user.password)
+   {
+
+       res.status(200).json({ auth: true, msg: "Login successfull" })
+    }else
+        {
+            
+            res.status(200).json({ auth: false, msg: "Login Failed" })
+   }
     // res.status(404).json({auth:true,msg:"Login successfull"})
+
+}
+catch(err)
+{
+    return res.status(404).json({auth:false,msg:err})
+}
 })
 
 // endpoint
@@ -49,6 +85,32 @@ app.post("/reg", async function (req, res) {
         return res.json({error:err,reg:false})
     }
     // res.status(404).json({auth:true,msg:"Login successfull"})
+})
+
+
+
+
+app.post("/incident",async function(req,res){
+
+    const data=req.body
+
+try
+{
+    const savedIncident=await IncidentModel.create(data)
+
+    if(!savedIncident)
+    {
+        return res.json({save:false,msg:"Incident not saved"})
+    }
+
+    res.json({save:true,msg:"Incident saved"})
+
+}
+catch(err)
+{
+return res.json({save:false,msg:"Incident not saved:"+err})
+}
+
 })
 
 app.listen(5000, function () {
