@@ -1,18 +1,45 @@
 const express = require("express")
 const cors = require("cors")
 const app = express()
+const cookieParser=require("cookie-parser")
 const { connectToMongoDB } = require("./config/db")
 const UserModel = require("./models/user")
 const IncidentModel = require("./models/incident")
 const { default: mongoose } = require("mongoose")
 require("dotenv").config()
+app.use(express.json())   // req.body
 const jwt=require("jsonwebtoken")
 
 // allowing client running on link http://localhost:5173
-app.use(cors({ origin: "http://localhost:5173" }))
+app.use(cors({ origin: "http://localhost:5173",
+    credentials:true }))
 
-app.use(express.json())   // req.body
 // allow incoming json
+
+app.use(cookieParser())
+
+
+const authMiddleware=function(req,res,next)
+{
+    const token=req.cookies.token
+    if(!token)
+    {
+        return res.json({msg:"Login first or unauth user"})
+    }
+try
+{
+    const decode=jwt.verify(token,process.env.JWT_SECRET)
+    req.user=decode
+    next()
+}
+catch(err)
+{
+    return res.json({msg:"Login error:"+err})
+}
+
+
+}
+
 
 // endpoint
 app.get("/", function (req, res) {
@@ -20,7 +47,7 @@ app.get("/", function (req, res) {
 })
 
 // endpoint
-app.get("/incident", async function (req, res) {
+app.get("/incident", authMiddleware, async function (req, res) {
     try {
         const incidents = await IncidentModel.find()
         if (!incidents) {
@@ -33,6 +60,7 @@ app.get("/incident", async function (req, res) {
         return res.json({ msg: "Incidents not found:" + err })
     }
 })
+
 
 // endpoint
 app.post("/auth", async function (req, res) {
@@ -56,7 +84,13 @@ app.post("/auth", async function (req, res) {
                                         expiresIn:process.env.JWT_EXP
                                     }
                                 )
-            res.status(200).json({ auth: true, msg: "Login successfull",token })
+            res.cookie("token",token,{
+                httpOnly:true,
+                secure:false, // for production true
+                sameSite:"lax",
+                maxAge:60*60*1000   // in milliseconds 1 hour
+            })
+            res.status(200).json({ auth: true, msg: "Login successfull" })
         } else {
 
             res.status(200).json({ auth: false, msg: "Login Failed" })
@@ -89,7 +123,7 @@ app.post("/reg", async function (req, res) {
 })
 
 
-app.put("/incident/:id", async function (req, res) {
+app.put("/incident/:id", authMiddleware, async function (req, res) {
     const id = req.params.id
     const data = req.body
     try {
@@ -109,7 +143,7 @@ app.put("/incident/:id", async function (req, res) {
     }
 })
 
-app.delete("/incident/:id", async function (req, res) {
+app.delete("/incident/:id",authMiddleware, async function (req, res) {
     const id = req.params.id
     // string 
 
@@ -129,7 +163,7 @@ app.delete("/incident/:id", async function (req, res) {
     }
 })
 
-app.post("/incident", async function (req, res) {
+app.post("/incident",authMiddleware, async function (req, res) {
 
     const data = req.body
 
