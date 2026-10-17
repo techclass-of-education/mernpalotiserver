@@ -5,6 +5,8 @@ const { connectToMongoDB } = require("./config/db")
 const UserModel = require("./models/user")
 const IncidentModel = require("./models/incident")
 const { default: mongoose } = require("mongoose")
+require("dotenv").config()
+const jwt=require("jsonwebtoken")
 
 // allowing client running on link http://localhost:5173
 app.use(cors({ origin: "http://localhost:5173" }))
@@ -44,8 +46,17 @@ app.post("/auth", async function (req, res) {
         }
 
         if (req.body.password == user.password) {
-
-            res.status(200).json({ auth: true, msg: "Login successfull" })
+            const token=jwt.sign(
+                                    {
+                                        id:user._id,
+                                        email:user.email
+                                    }
+                                    , process.env.JWT_SECRET,
+                                    {
+                                        expiresIn:process.env.JWT_EXP
+                                    }
+                                )
+            res.status(200).json({ auth: true, msg: "Login successfull",token })
         } else {
 
             res.status(200).json({ auth: false, msg: "Login Failed" })
@@ -138,7 +149,7 @@ app.post("/incident", async function (req, res) {
 
 })
 
-app.listen(5000, function () {
+app.listen(process.env.PORT||5000, function () {
 
     connectToMongoDB().then(function () {
 
